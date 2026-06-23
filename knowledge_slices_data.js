@@ -1,7 +1,7 @@
-// 知识切片数据 - 从 PDF 重新抽取 (v8)
+﻿// 知识切片数据 - 从 PDF 重新抽取 (v8)
 // 自动生成，请勿手动编辑
 // 总计切片数: 542
-const KNOWLEDGE_SLICES_DATA = {
+window.KNOWLEDGE_SLICES_DATA = {
   "化学": [],
   "数学": [
     {
