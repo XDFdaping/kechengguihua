@@ -9701,8 +9701,8 @@ function renderSlices() {
     
     Object.entries(byChapter).forEach(([chap, chapSlices]) => {
       html += `<details class="chap-group" open><summary>📖 ${chap}（${chapSlices.length} 个切片）</summary><div class="chap-slices">`;
-      chapSlices.forEach(s => {
-        const active = selectedSlices.some(x => x.id === s.id);
+      chapSlices.forEach((s, idx) => {
+        const active = selectedSlices.some(x => x.id === (sub + '|' + s.chapter + '|' + idx));
         const hL = s.hours_low || s.h_low || '-';
         const hM = s.hours_mid || s.h_mid || '-';
         const hH = s.hours_high || s.h_high || '-';
@@ -9710,8 +9710,9 @@ function renderSlices() {
         const content = (s.content || s.desc || '').replace(/'/g, '&#39;');
         const contentShort = content.length > 50 ? content.slice(0,50) + '…' : content;
         const hInfo = `课次(潜/中/优): ${hL}/${hM}/${hH}`;
+        const sliceId = sub + '|' + s.chapter + '|' + idx;
         html += `
-          <div class="slice-card${active ? ' active' : ''}" data-slice-id="${s.id}" data-slice-sub="${sub}" title="${points} | ${content} | ${hInfo}" onclick="toggleSlice('${s.id}','${sub}', this)">
+          <div class="slice-card${active ? ' active' : ''}" data-slice-id="${sliceId}" data-slice-sub="${sub}" title="${points} | ${content} | ${hInfo}" onclick="toggleSlice('${sliceId}','${sub}', this)">
             <span class="check-mark">${active ? '✓' : ''}</span>
             <div class="slice-body">
               <div class="slice-points">${points}</div>
