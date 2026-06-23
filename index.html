@@ -9424,8 +9424,7 @@ const KNOWLEDGE_SLICES_DATA = {
 .slice-card{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:#1A5C38;color:#fff!important;border:1.5px solid transparent;border-radius:8px;cursor:pointer;transition:all .15s;position:relative;min-height:38px}
 .slice-card:hover{background:#145031;border-color:#E8A020}
 .slice-card.active{background:#E8A020;color:#1A5C38;border-color:#1A5C38;font-weight:600}
-.slice-card input[type=checkbox]{display:none}
-.slice-card .check-mark{position:absolute;top:6px;right:8px;font-size:10px;opacity:0}
+.slice-card .check-mark{position:absolute;top:6px;right:8px;font-size:10px;opacity:0;transition:opacity .15s}
 .slice-card.active .check-mark{opacity:1;color:#1A5C38;font-weight:bold}
 .slice-card *{color:#fff!important}
 .slice-card.active *{color:#1A5C38!important}
@@ -9712,15 +9711,14 @@ function renderSlices() {
         const contentShort = content.length > 50 ? content.slice(0,50) + '…' : content;
         const hInfo = `课次(潜/中/优): ${hL}/${hM}/${hH}`;
         html += `
-          <label class="slice-card${active ? ' active' : ''}" title="${points} | ${content} | ${hInfo}">
+          <div class="slice-card${active ? ' active' : ''}" data-slice-id="${s.id}" data-slice-sub="${sub}" title="${points} | ${content} | ${hInfo}" onclick="toggleSlice('${s.id}','${sub}', this)">
             <span class="check-mark">${active ? '✓' : ''}</span>
-            <input type="checkbox" value="${s.id}" ${active ? 'checked' : ''} onchange="toggleSlice('${s.id}','${sub}')">
             <div class="slice-body">
               <div class="slice-points">${points}</div>
               <div class="slice-content">${contentShort || '<span style="color:#aaa">（无内容描述）</span>'}</div>
               <div class="slice-hours">⏱ ${hL} / ${hM} / ${hH} 次</div>
             </div>
-          </label>`;
+          </div>`;
       });
       html += '</div></details>';
     });
@@ -9736,15 +9734,30 @@ function renderSlices() {
   }
 }
 
-function toggleSlice(id, sub) {
+function toggleSlice(id, sub, cardEl) {
   const idx = selectedSlices.findIndex(s => s.id === id);
-  if (idx > -1) { selectedSlices.splice(idx, 1); }
-  else {
+  let nowActive;
+  if (idx > -1) {
+    selectedSlices.splice(idx, 1);
+    nowActive = false;
+  } else {
     const allSlices = getActiveSlices();
     const found = (allSlices[sub] || []).find(s => s.id === id);
-    if (found) selectedSlices.push(found);
+    if (found) { selectedSlices.push(found); nowActive = true; }
   }
-  renderSlices();
+  // v8.0.2: 局部更新，避免重绘导致滚动跳 + 保留展开状态
+  if (cardEl) {
+    const check = cardEl.querySelector('.check-mark');
+    if (nowActive) {
+      cardEl.classList.add('active');
+      if (check) check.textContent = '✓';
+    } else {
+      cardEl.classList.remove('active');
+      if (check) check.textContent = '';
+    }
+  } else {
+    renderSlices();
+  }
 }
 
 // ========== SLICE FILE UPLOAD ==========
