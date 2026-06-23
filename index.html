@@ -9658,6 +9658,38 @@ function getActiveSlices() {
   return KNOWLEDGE_SLICES_DATA;
 }
 
+// v8.0.3: 数据本身无 id 字段；为每个切片按"科目|章节|下标"合成稳定 id，并就地注入。
+// 这样 buildPlan / toggleSlice / renderSlices 都可以安全用 s.id 去重和查找。
+function injectSliceIds() {
+  Object.keys(KNOWLEDGE_SLICES_DATA).forEach(sub => {
+    const arr = KNOWLEDGE_SLICES_DATA[sub] || [];
+    const idxByChap = {};
+    arr.forEach(s => {
+      const chap = s.chapter || '_default';
+      if (idxByChap[chap] === undefined) idxByChap[chap] = 0;
+      const i = idxByChap[chap]++;
+      s.id = sub + '|' + chap + '|' + i;
+      s.subject = sub;
+    });
+  });
+  if (uploadedSlices) {
+    Object.keys(uploadedSlices).forEach(sub => {
+      const arr = uploadedSlices[sub] || [];
+      const idxByChap = {};
+      arr.forEach(s => {
+        if (s.id) return; // 已带 id 不重写
+        const chap = s.chapter || '_default';
+        if (idxByChap[chap] === undefined) idxByChap[chap] = 0;
+        const i = idxByChap[chap]++;
+        s.id = sub + '|' + chap + '|' + i;
+        s.subject = sub;
+      });
+    });
+  }
+}
+// 页面加载时立即注入（同步）
+try { injectSliceIds(); } catch (e) { console.error('injectSliceIds failed', e); }
+
 function renderSlices() {
   const grid = document.getElementById('slicesGrid');
   const allSlices = getActiveSlices();
@@ -9702,7 +9734,9 @@ function renderSlices() {
     Object.entries(byChapter).forEach(([chap, chapSlices]) => {
       html += `<details class="chap-group" open><summary>📖 ${chap}（${chapSlices.length} 个切片）</summary><div class="chap-slices">`;
       chapSlices.forEach((s, idx) => {
-        const active = selectedSlices.some(x => x.id === (sub + '|' + s.chapter + '|' + idx));
+        // v8.0.3: 数据本身无 id 字段，用 sub|chapter|idx 合成唯一 id
+        const sliceId = sub + '|' + chap + '|' + idx;
+        const active = selectedSlices.some(x => x.id === sliceId);
         const hL = s.hours_low || s.h_low || '-';
         const hM = s.hours_mid || s.h_mid || '-';
         const hH = s.hours_high || s.h_high || '-';
@@ -9710,9 +9744,8 @@ function renderSlices() {
         const content = (s.content || s.desc || '').replace(/'/g, '&#39;');
         const contentShort = content.length > 50 ? content.slice(0,50) + '…' : content;
         const hInfo = `课次(潜/中/优): ${hL}/${hM}/${hH}`;
-        const sliceId = sub + '|' + s.chapter + '|' + idx;
         html += `
-          <div class="slice-card${active ? ' active' : ''}" data-slice-id="${sliceId}" data-slice-sub="${sub}" title="${points} | ${content} | ${hInfo}" onclick="toggleSlice('${sliceId}','${sub}', this)">
+          <div class="slice-card${active ? ' active' : ''}" data-slice-id="${sliceId}" data-slice-sub="${sub}" data-chap="${chap}" data-idx="${idx}" title="${points} | ${content} | ${hInfo}" onclick="toggleSlice('${sliceId}','${sub}', this)">
             <span class="check-mark">${active ? '✓' : ''}</span>
             <div class="slice-body">
               <div class="slice-points">${points}</div>
@@ -9736,15 +9769,25 @@ function renderSlices() {
 }
 
 function toggleSlice(id, sub, cardEl) {
+  // v8.0.3: 数据本身无 id，用 sub|chapter|idx 合成；cardEl 必传，从 data-* 反查完整对象
   const idx = selectedSlices.findIndex(s => s.id === id);
   let nowActive;
   if (idx > -1) {
     selectedSlices.splice(idx, 1);
     nowActive = false;
   } else {
+    // 从 cardEl 的 data-* 重新定位原切片
+    const chap = cardEl?.dataset?.chap;
+    const sliceIdx = parseInt(cardEl?.dataset?.idx, 10);
     const allSlices = getActiveSlices();
-    const found = (allSlices[sub] || []).find(s => s.id === id);
-    if (found) { selectedSlices.push(found); nowActive = true; }
+    const chapSlices = (allSlices[sub] || []).filter(s => s.chapter === chap);
+    const found = isNaN(sliceIdx) ? null : chapSlices[sliceIdx];
+    if (found) {
+      // 把合成的 id 注入到 found 上，方便后续去重/构建计划
+      const foundWithId = Object.assign({}, found, { id, subject: sub });
+      selectedSlices.push(foundWithId);
+      nowActive = true;
+    }
   }
   // v8.0.2: 局部更新，避免重绘导致滚动跳 + 保留展开状态
   if (cardEl) {
@@ -9787,6 +9830,8 @@ function loadSliceFile(input) {
         info.textContent = '请使用CSV/TXT/JSON格式上传知识切片';
         return;
       }
+      // v8.0.3: 用户上传后也要注入 id
+      try { injectSliceIds(); } catch (e) { console.error('injectSliceIds post-upload', e); }
       info.textContent = `已加载：${file.name}（共 ${Object.values(uploadedSlices).flat().length} 个切片）`;
       document.getElementById('sliceUploadArea').classList.add('has-data');
       selectedSlices = [];
