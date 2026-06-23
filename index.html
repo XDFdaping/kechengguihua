@@ -10019,8 +10019,7 @@ function subjectTag(sub) {
 
 // ========== HOMEWORK GENERATOR ==========
 function generateHomework(slice, isFirst, isLast, subject) {
-  // Generate 30-minute homework tasks based on knowledge slice sub-category
-  // 尝试从切片数据的 sub 字段匹配任务
+  // Generate 30-minute homework tasks based on knowledge slice chapter / content / subject
   const taskBank = {
     '语法': ['完成本节课语法点专项练习8-10题（约15分钟）', '整理本课语法笔记，用思维导图梳理知识框架（约10分钟）', '找出课本中3个该语法点的例句并分析结构（约5分钟）'],
     '阅读': ['完成1篇同类阅读理解题并标注答案依据（约20分钟）', '整理本节课讲的阅读技巧要点，写50字小结（约10分钟）'],
@@ -10063,25 +10062,64 @@ function generateHomework(slice, isFirst, isLast, subject) {
     '哲学': ['完成哲学原理应用题2道（约20分钟）', '用本课哲学原理解释一个生活现象（约10分钟）'],
     '现代': ['完成现代史综合题2道（约20分钟）', '整理改革开放时间线（约10分钟）'],
   };
-  
-  // 尝试匹配切片分类
-  const cat = (slice.sub || '').trim();
+
+  // 关键词 → 任务类目（按 subject + content 智能匹配）
+  const keywordMap = {
+    '语法': ['语法','时态','句型','从句','语态','非谓语','虚拟语气','主谓一致','冠词','介词','代词','连词','定语','状语','宾语','同位语','倒装','强调','it 用法','there be'],
+    '阅读': ['阅读','阅读理解','短文','文章','主旨','作者意图','推理','细节','词义','阅读技巧','七选五','任务型'],
+    '写作': ['写作','作文','应用文','书信','图表','摘要','续写','概要','文体','提纲','素材'],
+    '词汇': ['词汇','单词','短语','词组','构词','派生','词根','词缀','搭配','近义词','反义词','高频词'],
+    '听力': ['听力','听说','听写','语音','音标','重音','语调'],
+    '函数': ['函数','一次函数','二次函数','反比例','指数函数','对数','幂函数','三角函数','图像','单调性','奇偶性','对称性','值域','定义域'],
+    '代数': ['代数','方程','不等式','因式分解','分式','整式','一元一次','一元二次','二元一次','分式方程','根式'],
+    '几何': ['几何','三角形','四边形','圆','相似','全等','平行','垂直','角','线段','周长','面积','体积','证明','作图','坐标','向量','投影'],
+    '分析': ['导数','微分','积分','极限','连续','间断','无穷'],
+    '统计': ['统计','概率','随机','样本','方差','期望','分布','正态','频率','中位数','众数'],
+    '基础': ['基础','概念','定义','性质','定理','公式','法则','认识','了解','理解','辨析','识记'],
+    '力学': ['力学','运动','力','牛顿','惯性','加速度','速度','位移','功','能','动量','压强','浮力','摩擦','简单机械','杠杆','滑轮'],
+    '电磁': ['电磁','电路','电流','电压','电阻','欧姆','电功','电功率','电热','磁场','电磁感应','发电机','电动机','变压器','半导体'],
+    '热学': ['热学','温度','热量','内能','比热','热机','热值','分子动理论','物态变化','熔化','凝固','汽化','液化'],
+    '光学': ['光学','光','反射','折射','凸透镜','凹透镜','成像','色散','红外线','紫外线','光的传播','光的直线传播'],
+    '近代': ['近代','原子','原子核','核能','裂变','聚变','相对论','量子','波粒二象性','能级'],
+    '元素': ['元素','金属','非金属','氧化物','酸','碱','盐','化合物','单质','周期表','族','周期','活泼性','置换反应'],
+    '理论': ['理论','反应','平衡','速率','焓变','熵','电化学','原电池','电解','盐类水解','沉淀溶解'],
+    '有机': ['有机','烃','烷','烯','炔','苯','醇','醛','酸','酯','糖','蛋白质','油脂','高分子','聚合','单体','官能团'],
+    '实验': ['实验','操作','仪器','试剂','现象','结论','设计','探究','测量','滴定','过滤','蒸发','蒸馏'],
+    '细胞': ['细胞','细胞膜','细胞核','细胞质','细胞器','原核','真核','分裂','分化','衰老','凋亡','癌变','显微镜'],
+    '代谢': ['代谢','光合','呼吸','酶','ATP','有丝分裂','减数分裂','自由水','结合水','渗透','蒸腾'],
+    '遗传': ['遗传','基因','DNA','RNA','染色体','孟德尔','分离','自由组合','伴性','显性','隐性','突变','基因工程'],
+    '调节': ['调节','神经','体液','激素','反射','大脑','脊髓','感受器','效应器','胰岛素','甲状腺','抗体'],
+    '生态': ['生态','生态系统','种群','群落','食物链','食物网','能量流动','物质循环','演替','保护','可持续发展'],
+    '古代': ['古代','先秦','秦汉','三国','唐宋','明清','朝代','皇帝','制度','科举','丝绸之路','四大发明'],
+    '世界': ['世界','工业革命','殖民','一战','二战','冷战','全球化','欧盟','联合国','资本主义','社会主义'],
+    '方法': ['方法','技巧','策略','审题','解题','思路','步骤','技巧','规律','总结'],
+    '自然': ['自然','气候','天气','大气','水循环','洋流','板块','地震','火山','地貌','地形','地质','等高线'],
+    '人文': ['人文','人口','城市','农业','工业','交通','商业','区位','聚落','可持续发展'],
+    '区域': ['区域','中国地理','世界地理','国家','地区','中国','南方','北方','西北','青藏'],
+    '技术': ['3S','遥感','GIS','GPS','数字地球','地理信息技术'],
+    '文言': ['文言','古诗','古文','虚词','实词','通假字','词类活用','句式','断句','翻译'],
+    '诗词': ['诗词','诗歌','鉴赏','名句','意象','手法','作者','背景','体裁'],
+    '经济': ['经济','商品','货币','价格','价值','市场','供需','通货膨胀','财政','税收','银行','企业','GDP','消费','投资'],
+    '政治': ['政治','国家','政府','政党','制度','民主','法治','人权','主权','公民','选举','权力','义务'],
+    '文化': ['文化','传统','民族','精神','价值观','道德','科技','教育','文学','艺术'],
+    '哲学': ['哲学','唯物','唯心','辩证','形而上学','实践','认识','发展','矛盾','联系','历史观','人生观','价值观'],
+    '现代': ['现代','改革开放','新中国','社会主义','邓小平','新时代','一国两制','两岸','外交','复兴','中国梦'],
+  };
+
+  // 从 slice.chapter + points + content 拼出可搜字符串
+  const haystack = [slice.chapter || '', slice.points || '', slice.content || ''].join(' ');
+
   let tasks = null;
-  
-  // 精确匹配
-  if (taskBank[cat]) {
-    tasks = taskBank[cat];
-  } else {
-    // 模糊匹配
-    for (const [key, val] of Object.entries(taskBank)) {
-      if (cat.includes(key) || key.includes(cat)) {
-        tasks = val;
-        break;
-      }
+  let matchedKey = null;
+  for (const [key, words] of Object.entries(keywordMap)) {
+    if (words.some(w => haystack.includes(w))) {
+      tasks = taskBank[key];
+      matchedKey = key;
+      break;
     }
   }
-  
-  // 按科目回退
+
+  // 实在匹不到，按 subject 回退到该科目默认类目
   if (!tasks) {
     const fallback = {
       '英语': taskBank['语法'], '数学': taskBank['代数'], '物理': taskBank['力学'],
@@ -10089,14 +10127,15 @@ function generateHomework(slice, isFirst, isLast, subject) {
       '历史': taskBank['古代'], '地理': taskBank['自然'], '政治': taskBank['政治'],
     };
     tasks = fallback[subject] || taskBank['综合'];
+    matchedKey = '综合';
   }
-  
+
   const taskList = tasks.map(t => `<div>📝 ${t}</div>`).join('');
   const warmup = isFirst ? '<div style="margin-top:4px;color:#7F77DD;font-size:11px">⚡ 首次课后额外：准备专用错题本，建立学科学习档案</div>' : '';
   const wrapup = isLast ? '<div style="margin-top:4px;color:#7F77DD;font-size:11px">🎯 阶段总结：整理全部错题，用红笔标注高频错误类型，制定下阶段提升目标</div>' : '';
 
   return `<div class="hw-section">
-    <div class="hw-label">📋 课后任务辅导（预计30分钟）</div>
+    <div class="hw-label">📋 课后任务辅导（预计30分钟 · 分类：${matchedKey}）</div>
     <div class="hw-content">${taskList}${warmup}${wrapup}</div>
   </div>`;
 }
@@ -10158,9 +10197,9 @@ function buildPlan(name, grade, subjects, slices, dates, note) {
     rows.push({
       idx: 1,
       date: formatDate(dates[0]),
-      subject: firstSlice.sub ? firstSlice.sub.split('|')[0].trim() : subjects[0],
+      subject: firstSlice.subject || subjects[0],
       title: '全面诊断与核心突破',
-      points: `${firstSlice.name}（${firstSlice.desc || ''}）`,
+      points: firstSlice.points ? `${firstSlice.points}（${firstSlice.content || ''}）` : '全面诊断与核心突破',
       slice: firstSlice,
       isFirst: true, isLast: true
     });
@@ -10176,7 +10215,7 @@ function buildPlan(name, grade, subjects, slices, dates, note) {
           return (allSlices[sub] || []).some(y => y.id === x.id);
         });
       });
-      
+
       const maxLen = Math.max(...Object.values(subSliceMap).map(arr => arr.length));
       for (let i = 0; i < maxLen; i++) {
         subjects.forEach(sub => {
@@ -10201,18 +10240,18 @@ function buildPlan(name, grade, subjects, slices, dates, note) {
         expandedPlan.push(s);
       }
     });
-    
+
     // 如果切片不够填满日期，补充综合回顾
     while (expandedPlan.length < total) {
-      expandedPlan.push({ name: '综合回顾', desc: '查漏补缺与阶段复习', sub: subjects[0], id: '_review' });
+      expandedPlan.push({ points: '综合回顾', content: '查漏补缺与阶段复习', subject: subjects[0], chapter: '综合', id: '_review' });
     }
-    
+
     // 按日期分配
     dates.forEach((date, i) => {
       const isFirst = i === 0;
       const isLast = i === total - 1;
       const s = expandedPlan[i] || sortedSlices[0];
-      
+
       // 确定科目
       let subject = subjects[0];
       for (const sub of subjects) {
@@ -10221,20 +10260,26 @@ function buildPlan(name, grade, subjects, slices, dates, note) {
           break;
         }
       }
-      
+
+      // 取切片名(优先用 chapter 名,fallback 到 points 前 12 字)
+      const sliceName = s.chapter || (s.points || '').slice(0, 12) || '本节';
+
       let title;
       if (s.id === '_review') {
         title = '综合回顾 · 查漏补缺';
       } else if (isFirst) {
-        title = `基础诊断 · ${s.name}专项`;
+        title = `基础诊断 · ${sliceName}专项`;
       } else if (isLast) {
-        title = `综合回顾 · ${s.name}`;
+        title = `综合回顾 · ${sliceName}`;
       } else {
-        title = `${s.name} · 专项突破`;
+        title = `${sliceName} · 专项突破`;
       }
-      
-      const pointsStr = s.desc || s.name;
-      
+
+      // 知识切片内容展示: chapter + points + content 三段
+      const pointsStr = s.points
+        ? (s.chapter ? `【${s.chapter}】 ${s.points}` : s.points) + (s.content ? ` — ${s.content}` : '')
+        : (s.content || sliceName);
+
       rows.push({
         idx: i + 1,
         date: formatDate(date),
